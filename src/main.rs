@@ -4,6 +4,7 @@ mod model;
 mod state;
 
 use axum::{
+    response::Html,
     routing::{get, put},
     Router,
 };
@@ -36,6 +37,38 @@ use utoipa_swagger_ui::SwaggerUi;
 )]
 struct ApiDoc;
 
+async fn scalar_ui() -> Html<&'static str> {
+    Html(r#"
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>API Reference</title>
+  <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
+  <style>
+    body { margin: 0; }
+    #scalar-reference { width: 100vw; height: 100vh; }
+  </style>
+</head>
+<body>
+  <script>
+    const configuration = {
+      spec: {
+        url: '/api-docs/openapi.json'
+      },
+      // Optional: customize theme, hide download button, etc.
+      // branding: { logo: false },
+      // meta: { hideDownloadButton: true }
+    }
+    document.getElementById('scalar-reference').clientConfig = configuration
+  </script>
+  <scalar-api-reference id="scalar-reference" />
+</body>
+</html>
+    "#)
+}
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     tracing_subscriber::registry()
@@ -48,7 +81,8 @@ async fn main() -> anyhow::Result<()> {
     let app_state = state::AppState::new("data".to_string())?;
 
     let app = Router::new()
-        .merge(SwaggerUi::new("/reference").url("/reference/openapi.json", ApiDoc::openapi()))
+        .merge(SwaggerUi::new("/docs").url("/api-docs/openapi.json", ApiDoc::openapi()))
+        .route("/references", get(scalar_ui))
         .route("/transactions", get(api::list_transactions).post(api::add_transaction))
         .route("/transactions/{id}", put(api::update_transaction).delete(api::delete_transaction))
         .route("/accounts", get(api::list_accounts).post(api::add_account))
