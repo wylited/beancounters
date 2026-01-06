@@ -37,6 +37,7 @@ use utoipa_swagger_ui::SwaggerUi;
 )]
 struct ApiDoc;
 
+// TODO fix this
 async fn scalar_ui() -> Html<&'static str> {
     Html(r#"
 <!DOCTYPE html>
@@ -81,7 +82,7 @@ async fn main() -> anyhow::Result<()> {
     let app_state = state::AppState::new("data".to_string())?;
 
     let app = Router::new()
-        .merge(SwaggerUi::new("/docs").url("/api-docs/openapi.json", ApiDoc::openapi()))
+        .merge(SwaggerUi::new("/docs").url("/docs/openapi.json", ApiDoc::openapi()))
         .route("/references", get(scalar_ui))
         .route("/transactions", get(api::list_transactions).post(api::add_transaction))
         .route("/transactions/{id}", put(api::update_transaction).delete(api::delete_transaction))

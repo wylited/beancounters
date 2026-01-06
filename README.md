@@ -1,6 +1,6 @@
 # Beancounters API
 
-Hey there! 👋 This is a simple, local API server for managing your Beancount ledger. It's built with Rust, Axum, and a few other cool tools.
+A simple, local, rust API server for managing your Beancount ledger.
 
 ## What it does
 
@@ -22,7 +22,7 @@ It works directly with your `.bean` files in the `data/` directory.
 2.  **Explore the API**:
     *   **Scalar UI**: Check out the beautiful API reference at [http://localhost:3000/references](http://localhost:3000/references).
     *   **Swagger UI**: Prefer the classic look? Go to [http://localhost:3000/docs](http://localhost:3000/docs).
-    *   **OpenAPI Spec**: Need the raw JSON? It's at [http://localhost:3000/api-docs/openapi.json](http://localhost:3000/api-docs/openapi.json).
+    *   **OpenAPI Spec**: Need the raw JSON? It's at [http://localhost:3000/docs/openapi.json](http://localhost:3000/docs/openapi.json).
 
 ## Data Structure
 
@@ -31,4 +31,3 @@ The server expects a `data/` directory with:
 *   `accounts.bean`: Your account definitions.
 *   `YYYY-MM.bean`: Monthly transaction files (created automatically).
 
-Enjoy counting those beans! 🫘
