@@ -1,7 +1,7 @@
 use axum::{extract::{State, Path}, Json, http::StatusCode, response::IntoResponse};
 use std::sync::Arc;
 use crate::state::AppState;
-use crate::model::{Transaction, Account, VerifyResult};
+use crate::model::{Transaction, Account, VerifyResult, CloseAccountRequest};
 use crate::beancount;
 
 #[utoipa::path(
@@ -102,6 +102,58 @@ pub async fn delete_transaction(State(state): State<Arc<AppState>>, Path(id): Pa
 }
 
 #[utoipa::path(
+    post,
+    path = "/transactions/{id}/clear",
+    params(
+        ("id" = String, Path, description = "Transaction ID")
+    ),
+    responses(
+        (status = 200, description = "Transaction cleared"),
+        (status = 500, description = "Internal server error")
+    )
+)]
+pub async fn clear_transaction(State(state): State<Arc<AppState>>, Path(id): Path<String>) -> Result<impl IntoResponse, (StatusCode, String)> {
+    let state = state.clone();
+    tokio::task::spawn_blocking(move || {
+        let _lock = state.write_lock.lock().unwrap();
+        beancount::update_transaction_flag(&id, "*")
+    })
+    .await
+    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("Task join error: {}", e)))?
+    .map(|_| StatusCode::OK)
+    .map_err(|e| {
+        tracing::error!("Failed to clear transaction: {}", e);
+        (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
+    })
+}
+
+#[utoipa::path(
+    post,
+    path = "/transactions/{id}/unclear",
+    params(
+        ("id" = String, Path, description = "Transaction ID")
+    ),
+    responses(
+        (status = 200, description = "Transaction uncleared"),
+        (status = 500, description = "Internal server error")
+    )
+)]
+pub async fn unclear_transaction(State(state): State<Arc<AppState>>, Path(id): Path<String>) -> Result<impl IntoResponse, (StatusCode, String)> {
+    let state = state.clone();
+    tokio::task::spawn_blocking(move || {
+        let _lock = state.write_lock.lock().unwrap();
+        beancount::update_transaction_flag(&id, "!")
+    })
+    .await
+    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("Task join error: {}", e)))?
+    .map(|_| StatusCode::OK)
+    .map_err(|e| {
+        tracing::error!("Failed to unclear transaction: {}", e);
+        (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
+    })
+}
+
+#[utoipa::path(
     get,
     path = "/accounts",
     responses(
@@ -194,6 +246,33 @@ pub async fn delete_account(State(state): State<Arc<AppState>>, Path(name): Path
     .map(|_| StatusCode::OK)
     .map_err(|e| {
         tracing::error!("Failed to delete account: {}", e);
+        (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
+    })
+}
+
+#[utoipa::path(
+    post,
+    path = "/accounts/{name}/close",
+    params(
+        ("name" = String, Path, description = "Account name")
+    ),
+    request_body = CloseAccountRequest,
+    responses(
+        (status = 200, description = "Account closed"),
+        (status = 500, description = "Internal server error")
+    )
+)]
+pub async fn close_account(State(state): State<Arc<AppState>>, Path(name): Path<String>, Json(payload): Json<CloseAccountRequest>) -> Result<impl IntoResponse, (StatusCode, String)> {
+    let state = state.clone();
+    tokio::task::spawn_blocking(move || {
+        let _lock = state.write_lock.lock().unwrap();
+        beancount::close_account(&state.data_dir, &name, &payload.date)
+    })
+    .await
+    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("Task join error: {}", e)))?
+    .map(|_| StatusCode::OK)
+    .map_err(|e| {
+        tracing::error!("Failed to close account: {}", e);
         (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
     })
 }

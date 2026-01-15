@@ -71,6 +71,44 @@ fn parse_file_transactions(path: &Path) -> Result<Vec<Transaction>> {
     Ok(transactions)
 }
 
+pub fn update_transaction_flag(id: &str, new_flag: &str) -> Result<()> {
+    let parts: Vec<&str> = id.splitn(2, ':').collect();
+    if parts.len() != 2 {
+        return Err(anyhow::anyhow!("Invalid ID"));
+    }
+    let path_str = parts[0];
+    let start_byte: usize = parts[1].parse()?;
+    
+    let path = PathBuf::from(path_str);
+    let content = fs::read_to_string(&path)?;
+    
+    let sources = BeancountSources::try_from(path.clone())
+        .map_err(|e| anyhow::anyhow!("Failed to load sources: {}", e))?;
+    let parser = BeancountParser::new(&sources);
+    let result = parser.parse().map_err(|e| anyhow::anyhow!("Parse error: {:?}", e))?;
+    
+    let mut flag_span_indices = None;
+    
+    for directive in result.directives {
+        if let DirectiveVariant::Transaction(t) = directive.variant() {
+             if directive.date().span().start == start_byte {
+                 let span = t.flag().span();
+                 flag_span_indices = Some((span.start, span.end));
+                 break;
+             }
+        }
+    }
+    
+    if let Some((start, end)) = flag_span_indices {
+        let new_content = format!("{}{}{}", &content[..start], new_flag, &content[end..]);
+        fs::write(&path, new_content)?;
+    } else {
+        return Err(anyhow::anyhow!("Transaction not found"));
+    }
+    
+    Ok(())
+}
+
 pub fn list_accounts(data_dir: &Path) -> Result<Vec<Account>> {
     let path = data_dir.join("accounts.bean");
     if !path.exists() {
@@ -96,6 +134,15 @@ pub fn list_accounts(data_dir: &Path) -> Result<Vec<Account>> {
     }
     
     Ok(accounts)
+}
+
+pub fn close_account(data_dir: &Path, name: &str, date: &str) -> Result<()> {
+    let path = data_dir.join("accounts.bean");
+    let text = format!("{} close {}\n", date, name);
+    use std::io::Write;
+    let mut file = fs::OpenOptions::new().create(true).append(true).open(&path)?;
+    file.write_all(text.as_bytes())?;
+    Ok(())
 }
 
 pub fn verify(data_dir: &Path) -> Result<VerifyResult> {

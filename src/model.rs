@@ -30,6 +30,11 @@ pub struct Account {
 }
 
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
+pub struct CloseAccountRequest {
+    pub date: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct VerifyResult {
     pub errors: Vec<String>,
     pub warnings: Vec<String>,

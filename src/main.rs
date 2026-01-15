@@ -22,14 +22,17 @@ use utoipa_swagger_ui::SwaggerUi;
         api::add_transaction,
         api::update_transaction,
         api::delete_transaction,
+        api::clear_transaction,
+        api::unclear_transaction,
         api::list_accounts,
         api::add_account,
         api::update_account,
         api::delete_account,
+        api::close_account,
         api::verify_ledger
     ),
     components(
-        schemas(model::Transaction, model::Posting, model::Account, model::VerifyResult)
+        schemas(model::Transaction, model::Posting, model::Account, model::VerifyResult, model::CloseAccountRequest)
     ),
     tags(
         (name = "beancounters", description = "Beancount API")
@@ -86,8 +89,11 @@ async fn main() -> anyhow::Result<()> {
         .route("/references", get(scalar_ui))
         .route("/transactions", get(api::list_transactions).post(api::add_transaction))
         .route("/transactions/{id}", put(api::update_transaction).delete(api::delete_transaction))
+        .route("/transactions/{id}/clear", axum::routing::post(api::clear_transaction))
+        .route("/transactions/{id}/unclear", axum::routing::post(api::unclear_transaction))
         .route("/accounts", get(api::list_accounts).post(api::add_account))
         .route("/accounts/{name}", put(api::update_account).delete(api::delete_account))
+        .route("/accounts/{name}/close", axum::routing::post(api::close_account))
         .route("/verify", get(api::verify_ledger))
         .with_state(Arc::new(app_state));
 
