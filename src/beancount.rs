@@ -207,9 +207,9 @@ pub fn delete_transaction(id: &str) -> Result<()> {
     Ok(())
 }
 
-pub fn update_transaction(id: &str, tx: Transaction) -> Result<()> {
+pub fn update_transaction(data_dir: &Path, id: &str, tx: Transaction) -> Result<()> {
     delete_transaction(id)?;
-    add_transaction(Path::new("data"), tx)?; 
+    add_transaction(data_dir, tx)?; 
     Ok(())
 }
 

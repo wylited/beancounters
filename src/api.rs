@@ -1,4 +1,4 @@
-use axum::{extract::{State, Path}, Json, http::StatusCode};
+use axum::{extract::{State, Path}, Json, http::StatusCode, response::IntoResponse};
 use std::sync::Arc;
 use crate::state::AppState;
 use crate::model::{Transaction, Account, VerifyResult};
@@ -12,14 +12,16 @@ use crate::beancount;
         (status = 500, description = "Internal server error")
     )
 )]
-pub async fn list_transactions(State(state): State<Arc<AppState>>) -> Result<Json<Vec<Transaction>>, StatusCode> {
-    match beancount::list_transactions(&state.data_dir) {
-        Ok(txs) => Ok(Json(txs)),
-        Err(e) => {
+pub async fn list_transactions(State(state): State<Arc<AppState>>) -> Result<Json<Vec<Transaction>>, (StatusCode, String)> {
+    let data_dir = state.data_dir.clone();
+    tokio::task::spawn_blocking(move || beancount::list_transactions(&data_dir))
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("Task join error: {}", e)))?
+        .map(Json)
+        .map_err(|e| {
             tracing::error!("Failed to list transactions: {}", e);
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
-        }
-    }
+            (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
+        })
 }
 
 #[utoipa::path(
@@ -31,15 +33,19 @@ pub async fn list_transactions(State(state): State<Arc<AppState>>) -> Result<Jso
         (status = 500, description = "Internal server error")
     )
 )]
-pub async fn add_transaction(State(state): State<Arc<AppState>>, Json(payload): Json<Transaction>) -> StatusCode {
-    let _lock = state.write_lock.lock().unwrap();
-    match beancount::add_transaction(&state.data_dir, payload) {
-        Ok(_) => StatusCode::CREATED,
-        Err(e) => {
-            tracing::error!("Failed to add transaction: {}", e);
-            StatusCode::INTERNAL_SERVER_ERROR
-        }
-    }
+pub async fn add_transaction(State(state): State<Arc<AppState>>, Json(payload): Json<Transaction>) -> Result<impl IntoResponse, (StatusCode, String)> {
+    let state = state.clone();
+    tokio::task::spawn_blocking(move || {
+        let _lock = state.write_lock.lock().unwrap();
+        beancount::add_transaction(&state.data_dir, payload)
+    })
+    .await
+    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("Task join error: {}", e)))?
+    .map(|_| StatusCode::CREATED)
+    .map_err(|e| {
+        tracing::error!("Failed to add transaction: {}", e);
+        (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
+    })
 }
 
 #[utoipa::path(
@@ -54,15 +60,19 @@ pub async fn add_transaction(State(state): State<Arc<AppState>>, Json(payload): 
         (status = 500, description = "Internal server error")
     )
 )]
-pub async fn update_transaction(State(state): State<Arc<AppState>>, Path(id): Path<String>, Json(payload): Json<Transaction>) -> StatusCode {
-    let _lock = state.write_lock.lock().unwrap();
-    match beancount::update_transaction(&id, payload) {
-        Ok(_) => StatusCode::OK,
-        Err(e) => {
-            tracing::error!("Failed to update transaction: {}", e);
-            StatusCode::INTERNAL_SERVER_ERROR
-        }
-    }
+pub async fn update_transaction(State(state): State<Arc<AppState>>, Path(id): Path<String>, Json(payload): Json<Transaction>) -> Result<impl IntoResponse, (StatusCode, String)> {
+    let state = state.clone();
+    tokio::task::spawn_blocking(move || {
+        let _lock = state.write_lock.lock().unwrap();
+        beancount::update_transaction(&state.data_dir, &id, payload)
+    })
+    .await
+    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("Task join error: {}", e)))?
+    .map(|_| StatusCode::OK)
+    .map_err(|e| {
+        tracing::error!("Failed to update transaction: {}", e);
+        (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
+    })
 }
 
 #[utoipa::path(
@@ -76,15 +86,19 @@ pub async fn update_transaction(State(state): State<Arc<AppState>>, Path(id): Pa
         (status = 500, description = "Internal server error")
     )
 )]
-pub async fn delete_transaction(State(state): State<Arc<AppState>>, Path(id): Path<String>) -> StatusCode {
-    let _lock = state.write_lock.lock().unwrap();
-    match beancount::delete_transaction(&id) {
-        Ok(_) => StatusCode::OK,
-        Err(e) => {
-            tracing::error!("Failed to delete transaction: {}", e);
-            StatusCode::INTERNAL_SERVER_ERROR
-        }
-    }
+pub async fn delete_transaction(State(state): State<Arc<AppState>>, Path(id): Path<String>) -> Result<impl IntoResponse, (StatusCode, String)> {
+    let state = state.clone();
+    tokio::task::spawn_blocking(move || {
+        let _lock = state.write_lock.lock().unwrap();
+        beancount::delete_transaction(&id)
+    })
+    .await
+    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("Task join error: {}", e)))?
+    .map(|_| StatusCode::OK)
+    .map_err(|e| {
+        tracing::error!("Failed to delete transaction: {}", e);
+        (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
+    })
 }
 
 #[utoipa::path(
@@ -95,14 +109,16 @@ pub async fn delete_transaction(State(state): State<Arc<AppState>>, Path(id): Pa
         (status = 500, description = "Internal server error")
     )
 )]
-pub async fn list_accounts(State(state): State<Arc<AppState>>) -> Result<Json<Vec<Account>>, StatusCode> {
-    match beancount::list_accounts(&state.data_dir) {
-        Ok(accounts) => Ok(Json(accounts)),
-        Err(e) => {
+pub async fn list_accounts(State(state): State<Arc<AppState>>) -> Result<Json<Vec<Account>>, (StatusCode, String)> {
+    let data_dir = state.data_dir.clone();
+    tokio::task::spawn_blocking(move || beancount::list_accounts(&data_dir))
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("Task join error: {}", e)))?
+        .map(Json)
+        .map_err(|e| {
             tracing::error!("Failed to list accounts: {}", e);
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
-        }
-    }
+            (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
+        })
 }
 
 #[utoipa::path(
@@ -114,15 +130,19 @@ pub async fn list_accounts(State(state): State<Arc<AppState>>) -> Result<Json<Ve
         (status = 500, description = "Internal server error")
     )
 )]
-pub async fn add_account(State(state): State<Arc<AppState>>, Json(payload): Json<Account>) -> StatusCode {
-    let _lock = state.write_lock.lock().unwrap();
-    match beancount::add_account(&state.data_dir, payload) {
-        Ok(_) => StatusCode::CREATED,
-        Err(e) => {
-            tracing::error!("Failed to add account: {}", e);
-            StatusCode::INTERNAL_SERVER_ERROR
-        }
-    }
+pub async fn add_account(State(state): State<Arc<AppState>>, Json(payload): Json<Account>) -> Result<impl IntoResponse, (StatusCode, String)> {
+    let state = state.clone();
+    tokio::task::spawn_blocking(move || {
+        let _lock = state.write_lock.lock().unwrap();
+        beancount::add_account(&state.data_dir, payload)
+    })
+    .await
+    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("Task join error: {}", e)))?
+    .map(|_| StatusCode::CREATED)
+    .map_err(|e| {
+        tracing::error!("Failed to add account: {}", e);
+        (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
+    })
 }
 
 #[utoipa::path(
@@ -137,15 +157,19 @@ pub async fn add_account(State(state): State<Arc<AppState>>, Json(payload): Json
         (status = 500, description = "Internal server error")
     )
 )]
-pub async fn update_account(State(state): State<Arc<AppState>>, Path(name): Path<String>, Json(payload): Json<Account>) -> StatusCode {
-    let _lock = state.write_lock.lock().unwrap();
-    match beancount::update_account(&state.data_dir, &name, payload) {
-        Ok(_) => StatusCode::OK,
-        Err(e) => {
-            tracing::error!("Failed to update account: {}", e);
-            StatusCode::INTERNAL_SERVER_ERROR
-        }
-    }
+pub async fn update_account(State(state): State<Arc<AppState>>, Path(name): Path<String>, Json(payload): Json<Account>) -> Result<impl IntoResponse, (StatusCode, String)> {
+    let state = state.clone();
+    tokio::task::spawn_blocking(move || {
+        let _lock = state.write_lock.lock().unwrap();
+        beancount::update_account(&state.data_dir, &name, payload)
+    })
+    .await
+    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("Task join error: {}", e)))?
+    .map(|_| StatusCode::OK)
+    .map_err(|e| {
+        tracing::error!("Failed to update account: {}", e);
+        (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
+    })
 }
 
 #[utoipa::path(
@@ -159,15 +183,19 @@ pub async fn update_account(State(state): State<Arc<AppState>>, Path(name): Path
         (status = 500, description = "Internal server error")
     )
 )]
-pub async fn delete_account(State(state): State<Arc<AppState>>, Path(name): Path<String>) -> StatusCode {
-    let _lock = state.write_lock.lock().unwrap();
-    match beancount::delete_account(&state.data_dir, &name) {
-        Ok(_) => StatusCode::OK,
-        Err(e) => {
-            tracing::error!("Failed to delete account: {}", e);
-            StatusCode::INTERNAL_SERVER_ERROR
-        }
-    }
+pub async fn delete_account(State(state): State<Arc<AppState>>, Path(name): Path<String>) -> Result<impl IntoResponse, (StatusCode, String)> {
+    let state = state.clone();
+    tokio::task::spawn_blocking(move || {
+        let _lock = state.write_lock.lock().unwrap();
+        beancount::delete_account(&state.data_dir, &name)
+    })
+    .await
+    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("Task join error: {}", e)))?
+    .map(|_| StatusCode::OK)
+    .map_err(|e| {
+        tracing::error!("Failed to delete account: {}", e);
+        (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
+    })
 }
 
 #[utoipa::path(
@@ -178,12 +206,14 @@ pub async fn delete_account(State(state): State<Arc<AppState>>, Path(name): Path
         (status = 500, description = "Internal server error")
     )
 )]
-pub async fn verify_ledger(State(state): State<Arc<AppState>>) -> Result<Json<VerifyResult>, StatusCode> {
-    match beancount::verify(&state.data_dir) {
-        Ok(result) => Ok(Json(result)),
-        Err(e) => {
+pub async fn verify_ledger(State(state): State<Arc<AppState>>) -> Result<Json<VerifyResult>, (StatusCode, String)> {
+    let data_dir = state.data_dir.clone();
+    tokio::task::spawn_blocking(move || beancount::verify(&data_dir))
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("Task join error: {}", e)))?
+        .map(Json)
+        .map_err(|e| {
             tracing::error!("Failed to verify ledger: {}", e);
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
-        }
-    }
+            (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
+        })
 }
