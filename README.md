@@ -20,7 +20,8 @@ It works directly with your `.bean` files in the `data/` directory.
     It'll start listening on `http://localhost:3000`.
 
 2.  **Explore the API**:
-    *   **Scalar UI**: Check out the beautiful API reference at [http://localhost:3000/references](http://localhost:3000/references).
+    *   View the current OpenAPI.json file.
+    *   (UNDER DEVELOPMENT) **Scalar UI**: Check out the beautiful API reference at [http://localhost:3000/references](http://localhost:3000/references).
     *   **Swagger UI**: Prefer the classic look? Go to [http://localhost:3000/docs](http://localhost:3000/docs).
     *   **OpenAPI Spec**: Need the raw JSON? It's at [http://localhost:3000/docs/openapi.json](http://localhost:3000/docs/openapi.json).
 
